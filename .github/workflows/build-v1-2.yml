@@ -1,0 +1,46 @@
+name: Build KRAVEIT Android V1.2 APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 build tools
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Extract KRAVEIT V1.2 source
+        run: unzip -q KRAVEIT_ANDROID_V1_2_FINAL.zip
+
+      - name: Build debug APK
+        working-directory: KRAVEIT_ANDROID_V1_2_FINAL
+        run: gradle --no-daemon assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KRAVEIT-Android-V1.2-debug
+          path: KRAVEIT_ANDROID_V1_2_FINAL/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
