@@ -32,7 +32,7 @@ jobs:
           gradle-version: '8.11.1'
 
       - name: Extract API 36 source
-        run: unzip -q KRAVEIT_ANDROID_V1_2_PLAY_READY_API36_SOURCE.zip
+        run: run: unzip -q "KRAVEIT_ANDROID_V1_2_PLAY_READY_API36_SOURCE (1).zip"
 
       - name: Build API 36 debug APK
         working-directory: KRAVEIT_ANDROID_V1_2_FINAL
