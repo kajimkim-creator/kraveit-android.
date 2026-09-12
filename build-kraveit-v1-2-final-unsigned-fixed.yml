@@ -1,4 +1,4 @@
-name: Build KRAVEIT V1.2 Final Unsigned APK
+name: .github/workflows/build-kraveit-v1-2-final-unsigned-fixed.yml
 
 on:
   workflow_dispatch:
