@@ -2,6 +2,12 @@ name: KRAVEIT V1.3 API 36 Test
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - deploy-v1-3
+    paths:
+      - 'KRAVEIT_ANDROID_V1_3_FINAL.zip'
+      - '.github/workflows/android-api36-test-v1-3.yml'
 
 jobs:
   build-debug:
@@ -27,12 +33,30 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      - name: Extract V1.3 source
+        run: |
+          rm -rf release-src
+          mkdir -p release-src
+          unzip -q KRAVEIT_ANDROID_V1_3_FINAL.zip -d release-src
+          PROJECT_DIR="$(dirname "$(find release-src -type f -name settings.gradle.kts -print -quit)")"
+          test -n "$PROJECT_DIR" || (echo "Android project not found in V1.3 ZIP" && exit 1)
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Verify V1.3 metadata
+        run: |
+          grep -q 'versionName = "1.3.0"' "$PROJECT_DIR/app/build.gradle.kts"
+          grep -q 'versionCode = 4' "$PROJECT_DIR/app/build.gradle.kts"
+          grep -q 'targetSdk = 36' "$PROJECT_DIR/app/build.gradle.kts"
+          grep -q 'applicationId = "ke.co.kraveit.app"' "$PROJECT_DIR/app/build.gradle.kts"
+
       - name: Build debug APK
-        run: gradle --no-daemon assembleDebug
+        run: |
+          cd "$PROJECT_DIR"
+          gradle --no-daemon assembleDebug
 
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
           name: KRAVEIT-V1.3-API36-test
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
