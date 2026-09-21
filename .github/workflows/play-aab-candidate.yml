@@ -1,0 +1,61 @@
+name: KRAVEIT Play AAB candidate
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/play-aab-v1-3-1]
+    paths:
+      - '.github/workflows/play-aab-candidate.yml'
+      - 'scripts/prepare_play_source.py'
+      - 'overrides/**'
+      - 'KRAVEIT_ANDROID_V1_3_FINAL.zip'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Prepare reviewed source
+        run: python3 scripts/prepare_play_source.py
+      - name: Install SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Build release candidate
+        run: |
+          set -euo pipefail
+          project="$(cat play-project-path.txt)"
+          gradle -p "$project" --no-daemon clean :app:lintRelease :app:testReleaseUnitTest :app:bundleRelease :app:assembleRelease
+          mkdir -p play-artifacts
+          cp "$project/app/build/outputs/bundle/release/app-release.aab" play-artifacts/KRAVEIT-V1.3.1-unsigned.aab
+          cp "$project/app/build/outputs/apk/release/app-release-unsigned.apk" play-artifacts/KRAVEIT-V1.3.1-unsigned.apk
+          printf '%s\n' "$GITHUB_SHA" > play-artifacts/SOURCE_COMMIT.txt
+          cd play-artifacts
+          sha256sum *.aab *.apk > SHA256SUMS.txt
+      - name: Upload unsigned candidates
+        uses: actions/upload-artifact@v4
+        with:
+          name: KRAVEIT-V1.3.1-unsigned-candidates
+          path: play-artifacts/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Upload lint results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KRAVEIT-release-lint
+          path: play-src/**/app/build/reports/lint-results-release.*
+          if-no-files-found: ignore
+          retention-days: 90
