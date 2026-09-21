@@ -10,7 +10,7 @@ android {
         applicationId = "ke.co.kraveit.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 5
+        versionCode = 6
         versionName = "1.3.1"
         buildConfigField("String", "KRAVEIT_URL", "\"https://kraveit.netlify.app/\"")
     }
@@ -52,5 +52,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.activity:activity:1.9.3")
+    implementation("androidx.core:core:1.13.1")
     implementation("androidx.webkit:webkit:1.12.1")
 }

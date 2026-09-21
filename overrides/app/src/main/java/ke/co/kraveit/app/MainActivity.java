@@ -1,7 +1,12 @@
 package ke.co.kraveit.app;
 
 import android.Manifest;
-import android.app.Activity;
+import androidx.activity.ComponentActivity;
+import androidx.activity.OnBackPressedCallback;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -31,7 +36,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.Collections;
 
-public class MainActivity extends Activity {
+public class MainActivity extends ComponentActivity {
     private static final int LOCATION_REQUEST = 1001;
     private static final String HOME_URL = BuildConfig.KRAVEIT_URL;
     private static final String KRAVEIT_HOST = Uri.parse(HOME_URL).getHost();
@@ -41,6 +46,7 @@ public class MainActivity extends Activity {
     private static final String PROFILE_PREFS = "kraveit_customer_profile";
 
     private WebView webView;
+    private OnBackPressedCallback webBackCallback;
     private ProgressBar pageProgress;
     private GeolocationPermissions.Callback pendingGeoCallback;
     private String pendingGeoOrigin;
@@ -50,7 +56,9 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         setContentView(R.layout.activity_main);
+        configureWindowInsets();
 
         profilePrefs = getSharedPreferences(PROFILE_PREFS, MODE_PRIVATE);
         profileHelperScript = readAsset("profile-helper.js");
@@ -61,6 +69,14 @@ public class MainActivity extends Activity {
         Button trackButton = findViewById(R.id.trackButton);
         Button whatsAppButton = findViewById(R.id.whatsAppButton);
 
+        webBackCallback = new OnBackPressedCallback(false) {
+            @Override
+            public void handleOnBackPressed() {
+                webView.goBack();
+                updateBackNavigation();
+            }
+        };
+        getOnBackPressedDispatcher().addCallback(this, webBackCallback);
         configureWebView();
 
         homeButton.setOnClickListener(v -> loadInternal(HOME_URL));
@@ -70,6 +86,7 @@ public class MainActivity extends Activity {
         Uri incoming = getIntent() != null ? getIntent().getData() : null;
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState);
+            updateBackNavigation();
         } else if (!isOnline()) {
             webView.loadUrl(OFFLINE_URL);
         } else if (isKraveitHttps(incoming)) {
@@ -77,6 +94,27 @@ public class MainActivity extends Activity {
         } else {
             webView.loadUrl(BuildConfig.KRAVEIT_URL);
         }
+    }
+
+    private void configureWindowInsets() {
+        View root = ((android.view.ViewGroup) findViewById(android.R.id.content)).getChildAt(0);
+        final int left = root.getPaddingLeft();
+        final int top = root.getPaddingTop();
+        final int right = root.getPaddingRight();
+        final int bottom = root.getPaddingBottom();
+        ViewCompat.setOnApplyWindowInsetsListener(root, (view, windowInsets) -> {
+            Insets safe = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+                | WindowInsetsCompat.Type.displayCutout() | WindowInsetsCompat.Type.ime());
+            // Always start with original padding: repeated IME/inset events must not accumulate.
+            view.setPadding(left + safe.left, top + safe.top,
+                right + safe.right, bottom + safe.bottom);
+            return WindowInsetsCompat.CONSUMED;
+        });
+        ViewCompat.requestApplyInsets(root);
+    }
+
+    private void updateBackNavigation() {
+        if (webBackCallback != null) webBackCallback.setEnabled(webView.canGoBack());
     }
 
     private void configureWebView() {
@@ -176,10 +214,17 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+                super.doUpdateVisitedHistory(view, url, isReload);
+                updateBackNavigation();
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 pageProgress.setVisibility(View.GONE);
                 injectProfileHelper(view, url);
+                updateBackNavigation();
             }
 
             @Override
@@ -356,12 +401,4 @@ public class MainActivity extends Activity {
         super.onSaveInstanceState(outState);
     }
 
-    @Override
-    public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
-    }
 }
